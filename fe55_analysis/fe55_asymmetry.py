@@ -81,6 +81,8 @@ def create_data_frame(infiles, nfiles=None, dn_range=None):
     return data_frame
 
 if __name__ == '__main__':
+    import sys
+
     log.setLevel(logging.INFO)
 
     infiles = sorted(glob.glob('data/E2V-CCD250-088_fe55_fe55_*.fits'))
@@ -102,32 +104,41 @@ if __name__ == '__main__':
     else:
         data_frame = pd.read_pickle(df_file)
 
+    xlocmin, xlocmax = float(sys.argv[1]), float(sys.argv[2])
+    ylocmin, ylocmax = float(sys.argv[3]), float(sys.argv[4])
+    # plot the peak locations
+    peak_selection = ((data_frame['xloc'] > xlocmin)
+                      & (data_frame['xloc'] < xlocmax)
+                      & (data_frame['yloc'] > ylocmin)
+                      & (data_frame['yloc'] < ylocmax))
+    peaks = data_frame[peak_selection]
+    plt.rcParams['figure.figsize'] = 3, 3
+    fig = plt.figure()
+    plt.plot(peaks['xloc'], peaks['yloc'], 'k.')
+    plt.axis((-0.6, 0.6, -0.6, 0.6))
+
     # Plot the distributions
     plt.rcParams['figure.figsize'] = 16, 6
     fig = plt.figure()
-
-    dloc = 0.25
     for amp in range(1, 17):
         extname = 'AMP%02i' % amp
         subplot = (2, 8, amp)
         axes = fig.add_subplot(*subplot)
         range_ = (-10, 30)
         bins = 20
-        selection = (
-            (data_frame['amp'] == amp)
-            & (data_frame['xloc'] > -dloc)
-            & (data_frame['xloc'] < dloc)
-            & (data_frame['yloc'] > -dloc)
-            & (data_frame['yloc'] < dloc)
-            )
+        selection = (data_frame['amp'] == amp) & peak_selection
         df = data_frame[selection]
-        log.info("df size after selection: %i" % len(df))
-        plt.hist(df['p1'].values, color='blue', range=range_, bins=bins,
-                 histtype='step')
-        plt.hist(df['p3'].values, color='blue', range=range_, bins=bins,
-                 histtype='step', linestyle='dashed')
-        plt.hist(df['p5'].values, color='red', range=range_, bins=bins,
-                 histtype='step')
-        plt.hist(df['p7'].values, color='red', range=range_, bins=bins,
-                 histtype='step', linestyle='dashed')
+        #log.info("df size after selection: %i" % len(df))
+        if min(df['p1'].values) < range_[1]:
+            plt.hist(df['p1'].values, color='blue', range=range_, bins=bins,
+                     histtype='step')
+        if min(df['p3'].values) < range_[1]:
+            plt.hist(df['p3'].values, color='red', range=range_, bins=bins,
+                     histtype='step')
+        if min(df['p5'].values) < range_[1]:
+            plt.hist(df['p5'].values, color='red', range=range_, bins=bins,
+                     histtype='step', linestyle='dashed')
+        if min(df['p7'].values) < range_[1]:
+            plt.hist(df['p7'].values, color='blue', range=range_, bins=bins,
+                     histtype='step', linestyle='dashed')
         axes.set_title(extname)
