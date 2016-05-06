@@ -24,8 +24,8 @@ def profile_plot(ax, x, y, bins=20, xbounds=None, marker='.',
 
     ax.errorbar(profile['bincenters'], profile['ymean'],
                 yerr=profile['ymeanerr'], xerr=(xmax-xmin)/bins/2,
-                fmt=None, marker=marker, color=color)
-    return ax
+                fmt=None, marker=marker, ecolor=color)
+    return profile
 
 if __name__ == '__main__':
     plt.ion()

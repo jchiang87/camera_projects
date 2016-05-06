@@ -8,6 +8,7 @@ import astropy.io.fits as fits
 import lsst.eotest.sensor as sensorTest
 import lsst.eotest.image_utils as imutils
 from profile_plot import profile_plot
+from cti_amp_dict import pcti_, scti_
 
 plt.ion()
 
@@ -88,17 +89,10 @@ if __name__ == '__main__':
 #    dn_range = (760, 840)
 #    df_file = 'cluster_pixel_data.pkl'
 
-#    infiles = sorted(glob.glob('sim_data/000-01_fe55_fe55_*.fits'))
-#    nfiles = 5
-#    dn_range = (300, 370)
-#    df_file = 'cluster_pixel_simdata.pkl'
-
-    infiles = sorted(glob.glob('000-01_fe55_fe55_??_s1e-04.fits'))
-    nfiles = 5
+    infiles = sorted(glob.glob('000-01_fe55_fe55_??_scti.fits'))
+    nfiles = len(infiles)
     dn_range = (300, 370)
-    df_file = 'cluster_pixel_sim_s1e-04.pkl'
-
-    generate_psf_catalogs(infiles, nfiles=nfiles)
+    df_file = 'cluster_pixel_scti_sims.pkl'
 
     if not os.path.isfile(df_file):
         data_frame = create_data_frame(infiles, nfiles=nfiles,
@@ -116,31 +110,77 @@ if __name__ == '__main__':
 
     chiprobmin = data_frame['chiprob'] > 0.01
 
-    # plot the peak locations
     peak_selection = (chiprobmin
                       & (data_frame['xloc'] > xlocmin)
                       & (data_frame['xloc'] < xlocmax)
                       & (data_frame['yloc'] > ylocmin)
                       & (data_frame['yloc'] < ylocmax))
-    peaks = data_frame[peak_selection]
-    plt.rcParams['figure.figsize'] = 3, 3
+
+    amps = range(1, 17)
+
+    # plot the peak locations for each amp
+    plt.rcParams['figure.figsize'] = 10, 10
     fig = plt.figure()
-    plt.plot(peaks['xloc'], peaks['yloc'], 'k.')
-    plt.axis((-0.6, 0.6, -0.6, 0.6))
+    for amp in amps:
+        subplot = (4, 4, amp)
+        axes = fig.add_subplot(*subplot)
+        selection = (data_frame['amp'] == amp) & peak_selection
+        peaks = data_frame[selection]
+        plt.plot(peaks['xloc'], peaks['yloc'], 'k.')
+        plt.axis((-0.6, 0.6, -0.6, 0.6))
+        title = "amp%02i, %8.2e" % (amp, scti_[amp])
+        axes.set_title(title)
+
+    # plot histograms of fitted intrapixel x- positions of the Gaussian peak.
+    fig = plt.figure()
+    for amp in amps:
+        subplot = (4, 4, amp)
+        axes = fig.add_subplot(*subplot)
+        selection = (data_frame['amp'] == amp) & peak_selection
+        peaks = data_frame[selection]
+        plt.hist(peaks['xloc'].values, histtype='step', bins=20,
+                 range=(-0.5, 0.5))
+        title = "amp%02i, %8.2e" % (amp, scti_[amp])
+        axes.set_title(title)
+
+    # plot profiles of p3 and p5 for each amp as a function of x-pixel
+    fig = plt.figure()
+    for amp in amps:
+        subplot = (4, 4, amp)
+        axes = fig.add_subplot(*subplot)
+        selection = (peak_selection
+                     & (data_frame['amp'] == amp)
+                     & (data_frame['p5'] > -5)
+                     & (data_frame['p5'] < 30)
+                     & (data_frame['p3'] > -5)
+                     & (data_frame['p3'] < 30)
+                     )
+        df = data_frame[selection]
+        profile_plot(axes, df['ix'].values, df['p5'], color='red')
+        profile_plot(axes, df['ix'].values, df['p3'], color='blue')
+        prof_5m3 = profile_plot(axes, df['ix'].values, (df['p5'] + df['p3'])/2,
+                            color='green')
+        # Fit a line to the p5-p3 profile
+        index = ((prof_5m3['bincenters'] == prof_5m3['bincenters'])
+                 & (prof_5m3['ymean'] == prof_5m3['ymean']))
+        prof = prof_5m3[index]
+        pars, cov = np.polyfit(prof['bincenters'],
+                               prof['ymean'], 1, cov=True)
+        print amp, pars[0], np.sqrt(cov[0][0]), pars[0]/np.sqrt(cov[0][0])
+        title = "amp%02i, %8.2e" % (amp, scti_[amp])
+        axes.set_title(title)
 
     # Plot the distributions
-    amps = range(1, 17)
     pixels = ('p1', 'p3', 'p5', 'p7')
     colors = ('blue', 'red', 'red', 'blue')
     linestyles = ('solid', 'solid', 'dashed', 'dashed')
-    plt.rcParams['figure.figsize'] = 16, 12
+    plt.rcParams['figure.figsize'] = 16, 16
     fig = plt.figure()
     range_ = (-10, 30)
     bins = 20
     for amp in amps:
-        extname = 'AMP%02i' % amp
-        panel = 2*(amp-1) + 1
-        subplot = (4, 8, panel)
+        panel = 2*(amp - 1) + 1
+        subplot = (6, 6, panel)
         axes = fig.add_subplot(*subplot)
         selection = (data_frame['amp'] == amp) & peak_selection
         df = data_frame[selection]
@@ -151,11 +191,12 @@ if __name__ == '__main__':
                 hists.append(plt.hist(df[pixel].values, color=color,
                                       linestyle=linestyle, range=range_,
                                       bins=bins, histtype='step'))
-        axes.set_title(extname)
+        title = "amp%02i, %8.2e" % (amp, scti_[amp])
+        axes.set_title(title)
 
         # Plot the residiual trailing distributions:
         # p5-p3 (serial, red), p7-p1 (parallel, blue)
-        subplot = (4, 8, panel+1)
+        subplot = (6, 6, panel+1)
         axes = fig.add_subplot(*subplot)
         p1, p3, p5, p7 = tuple(hists)
         xvals = (p1[1][1:] + p1[1][:-1])/2.
@@ -163,38 +204,5 @@ if __name__ == '__main__':
                      marker='.', color='red')
         plt.errorbar(xvals, p7[0] - p1[0], yerr=np.sqrt(p7[0] + p1[0]),
                      marker='.', color='blue')
-        axes.set_title(extname)
-
-    amp = 1
-    selection = (
-        peak_selection
-        & (data_frame['amp'] == amp)
-#        & (data_frame['p5'] > 5)
-#        & (data_frame['p5'] < 25)
-        )
-    df = data_frame[selection]
-    plt.rcParams['figure.figsize'] = 5, 5
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    profile_plot(ax, df['ix'].values, df['p5'], color='red')
-    profile_plot(ax, df['ix'].values, df['p3'], color='blue')
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    plt.loglog(df['p3'], df['p5'], 'k.')
-
-    amp = 5
-    selection = (
-        peak_selection
-        & (data_frame['amp'] == amp)
-#        & (data_frame['p5'] > 5)
-#        & (data_frame['p5'] < 25)
-        )
-    df = data_frame[selection]
-    plt.rcParams['figure.figsize'] = 5, 5
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    profile_plot(ax, df['ix'].values, df['p5'], color='red')
-    profile_plot(ax, df['ix'].values, df['p3'], color='blue')
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    plt.loglog(df['p3'], df['p5'], 'k.')
+        title = "amp%02i, %8.2e" % (amp, scti_[amp])
+        axes.set_title(title)
