@@ -51,30 +51,31 @@ class TrailedCharge(object):
                                 self.oscan_errors)
         return np.sum(my_resids**2)
 
-    def plot_model(self, pars, color='blue', marker=':'):
+    def plot_model(self, pars, color='blue', marker=':', fmt='none'):
         """
         Plot the model fit.
         """
         q0, tau, cti, bias_level = pars
         plt.plot(self.oscan_pixels,
-                 self.model(self.oscan_pixels, q0, tau, cti, bias_level),
+                 self.model(self.oscan_pixels, q0, tau, cti, bias_level)/self.nrows,
                  marker, color=color)
         return plt.errorbar(self.oscan_pixels,
                             self.model(self.oscan_pixels, q0, tau, cti,
-                                       bias_level),
-                            color=color, fmt='.')
+                                       bias_level)/self.nrows,
+                            color=color, fmt=fmt)
 
     def plot_fit(self, pars, color='blue'):
         """
-        Plot the overscan column sums (ADU / column) vs overscan pixel.
+        Plot the overscan column sums (ADU / pixel) vs overscan pixel.
         """
         q0, tau, cti, bias_level = pars
 #        fig = plt.figure()
-        handle = plt.errorbar(self.oscan_pixels, self.oscan_values,
-                              yerr=self.oscan_errors, fmt='.', color=color)
+        handle = plt.errorbar(self.oscan_pixels, self.oscan_values/self.nrows,
+                              yerr=self.oscan_errors/self.nrows,
+                              fmt='.', color=color)
         self.plot_model(pars, color=color)
         plt.xlabel('overscan pixel')
-        plt.ylabel('ADU / column')
+        plt.ylabel('ADU / pixel')
         return handle
 
 class MultiObjectiveFunctions(object):
@@ -90,9 +91,11 @@ class MultiObjectiveFunctions(object):
         return np.sum(func(pars) for func in self.funcs)
 
 if __name__ == '__main__':
+    sensor_id = 'ITL-3800C-013'
     ccd_high = sensorTest.MaskedCCD('ITL-3800C-013_superflat_high.fits')
     ccd_low = sensorTest.MaskedCCD('ITL-3800C-013_superflat_low.fits')
 
+#    fig = plt.figure()
 #    for amp in ccd_high:
     for amp in (3, 8):
         tc_low = TrailedCharge(ccd_low, amp, lastskip=4)
@@ -120,11 +123,15 @@ if __name__ == '__main__':
         print amp, result_high.fun, result_high.x, '%.4e' % tc_high.cti()
         print amp, result.fun, result.x, '%.4e' % tc_high.cti()
         print
+#        ax = fig.add_subplot(4, 4, amp)
         fig = plt.figure()
         handles = [tc_low.plot_fit(result_low.x)]
         handles.append(tc_high.plot_fit(result_high.x, color='red'))
-        handles.append(tc_high.plot_model(result.x, color='green', marker='--'))
+        handles.append(tc_high.plot_model(result.x, color='green', marker='--',
+                                          fmt='.'))
         if tc_high.oscan_values[0]/tc_low.oscan_values[0] > 5:
             plt.yscale('log')
-        plt.title('amp %i' % amp)
+        plt.title('%s, amp %i' % (sensor_id, amp))
         plt.legend(handles, ['low flux', 'high flux', 'joint fit'], loc=0)
+        plt.savefig('%s_amp_%02i_overscan_fits.png' % (sensor_id, amp))
+#    plt.savefig('%s_overscan_fits.png' % sensor_id)
