@@ -27,14 +27,15 @@ class TrailedCharge(object):
         Si = self.q_lastcol - bias_est
         return So/Si/self.ncols
 
-    def model(self, oscan_pix, q0, tau, cti, bias_level):
+    def model(self, oscan_pix, q0, tau, cti, bias_per_pix):
         """
         Model of overscan pixel values:
         Exponential + CTI + bias level.
         """
+        bias = bias_per_pix*self.nrows
         return (q0*self.nrows*np.exp(-oscan_pix/tau)
-                + self.q_lastcol*self.ncols*cti**oscan_pix*(1. - cti)
-                + bias_level*self.nrows)
+                + (self.q_lastcol - bias)*self.ncols*cti**oscan_pix*(1. - cti)
+                + bias)
 
     def resids(self, pars, pixels, values, errors):
         """
@@ -95,9 +96,7 @@ if __name__ == '__main__':
     ccd_high = sensorTest.MaskedCCD('ITL-3800C-013_superflat_high.fits')
     ccd_low = sensorTest.MaskedCCD('ITL-3800C-013_superflat_low.fits')
 
-#    fig = plt.figure()
-#    for amp in ccd_high:
-    for amp in (3, 8):
+    for amp in ccd_high:
         tc_low = TrailedCharge(ccd_low, amp, lastskip=4)
         tc_high = TrailedCharge(ccd_high, amp, lastskip=4)
 
@@ -123,15 +122,19 @@ if __name__ == '__main__':
         print amp, result_high.fun, result_high.x, '%.4e' % tc_high.cti()
         print amp, result.fun, result.x, '%.4e' % tc_high.cti()
         print
-#        ax = fig.add_subplot(4, 4, amp)
         fig = plt.figure()
         handles = [tc_low.plot_fit(result_low.x)]
         handles.append(tc_high.plot_fit(result_high.x, color='red'))
-        handles.append(tc_high.plot_model(result.x, color='green', marker='--',
+        handles.append(tc_low.plot_model(result.x, color='blue', marker='--',
+                                         fmt='.'))
+        handles.append(tc_high.plot_model(result.x, color='red', marker='--',
                                           fmt='.'))
         if tc_high.oscan_values[0]/tc_low.oscan_values[0] > 5:
             plt.yscale('log')
+        axis_range = list(plt.axis())
+        axis_range[:2] = 0.5, axis_range[1]+0.5
+        plt.axis(axis_range)
         plt.title('%s, amp %i' % (sensor_id, amp))
-        plt.legend(handles, ['low flux', 'high flux', 'joint fit'], loc=0)
+        plt.legend(handles, ['low flux', 'high flux',
+                             'joint (low)', 'joint (high)'], loc=0)
         plt.savefig('%s_amp_%02i_overscan_fits.png' % (sensor_id, amp))
-#    plt.savefig('%s_overscan_fits.png' % sensor_id)
