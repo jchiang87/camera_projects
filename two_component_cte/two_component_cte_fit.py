@@ -33,7 +33,7 @@ class TrailedCharge(object):
         Exponential + CTI + bias level.
         """
         bias = bias_per_pix*self.nrows
-        return (q0*self.nrows*np.exp(-oscan_pix/tau)
+        return (q0*(self.q_lastcol - bias)*self.nrows*np.exp(-oscan_pix/tau)
                 + (self.q_lastcol - bias)*self.ncols*cti**oscan_pix*(1. - cti)
                 + bias)
 
@@ -92,20 +92,23 @@ class MultiObjectiveFunctions(object):
         return np.sum(func(pars) for func in self.funcs)
 
 if __name__ == '__main__':
-    sensor_id = 'ITL-3800C-013'
-    ccd_high = sensorTest.MaskedCCD('ITL-3800C-013_superflat_high.fits')
-    ccd_low = sensorTest.MaskedCCD('ITL-3800C-013_superflat_low.fits')
+#    sensor_id = 'ITL-3800C-013'
+    sensor_id = 'ITL-3800C-022'
+    ccd_high = sensorTest.MaskedCCD('%s_superflat_high.fits' % sensor_id)
+    ccd_low = sensorTest.MaskedCCD('%s_superflat_low.fits' % sensor_id)
 
     for amp in ccd_high:
         tc_low = TrailedCharge(ccd_low, amp, lastskip=4)
         tc_high = TrailedCharge(ccd_high, amp, lastskip=4)
 
         # Initial parameter estimates
-        bias_level = 1000.
+        bias_level = tc_high.oscan_values[-1]/tc_high.nrows
         cti_0 = tc_high.cti()
-        tau = 1./np.log((tc_low.oscan_values[1] - bias_level*tc_low.nrows)
-                        /(tc_low.oscan_values[2]- bias_level*tc_low.nrows))
-        q0 = (tc_low.oscan_values[1]/tc_low.nrows - bias_level)/np.exp(-2/tau)
+        tau = 1./np.log((tc_high.oscan_values[1] - bias_level*tc_high.nrows)
+                        /(tc_high.oscan_values[2]- bias_level*tc_high.nrows))
+        q0 = ((tc_high.oscan_values[1]/tc_high.nrows - bias_level)
+              /np.exp(-2/tau)/tc_high.q_lastcol)
+        print amp, q0, tau
 
         p0 = q0, tau, cti_0, bias_level
         bounds = ((0, None), (0, None), (0, None), (0, None))
@@ -114,13 +117,14 @@ if __name__ == '__main__':
         result = scipy.optimize.minimize(tc_combined, p0, method='L-BFGS-B',
                                          bounds=bounds)
 
+        p0 = result.x
         result_high = scipy.optimize.minimize(tc_high, p0, method='L-BFGS-B',
                                               bounds=bounds)
         result_low = scipy.optimize.minimize(tc_low, p0, method='L-BFGS-B',
                                              bounds=bounds)
+        print amp, result.fun, result.x, '%.4e' % tc_high.cti()
         print amp, result_low.fun, result_low.x, '%.4e' % tc_low.cti()
         print amp, result_high.fun, result_high.x, '%.4e' % tc_high.cti()
-        print amp, result.fun, result.x, '%.4e' % tc_high.cti()
         print
         fig = plt.figure()
         handles = [tc_low.plot_fit(result_low.x)]
