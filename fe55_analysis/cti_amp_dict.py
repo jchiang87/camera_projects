@@ -3,7 +3,7 @@ Dictionary of [ps]cti values for each amp.
 """
 import numpy as np
 
-__all__ = ['pcti_', 'scti']
+__all__ = ['pcti_', 'scti_']
 
 pcti_ = None
 log_cti_min = np.log10(1e-6)
