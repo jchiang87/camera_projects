@@ -1,18 +1,22 @@
+from __future__ import print_function
+import os
+from collections import OrderedDict
+import pickle
 import numpy as np
 import scipy.optimize
 import matplotlib
-#matplotlib.use('cairo')
+matplotlib.use('cairo')
 import matplotlib.pyplot as plt
 import lsst.eotest.sensor as sensorTest
 from MultiPanelPlot import MultiPanelPlot
-plt.ion()
+#plt.ion()
 
 class TrailedCharge(object):
     def __init__(self, ccd, amp, lastskip=4, gain=4, bias_per_pixel=None):
         self.nrows = ccd.amp_geom.imaging.getMaxY() + 1
         mi = ccd[amp]
-        imarr = mi.Factory(mi, ccd_high.amp_geom.imaging).getImage().getArray()
-        oscan = mi.Factory(mi, ccd_high.amp_geom.serial_overscan).getImage().getArray()[:self.nrows, :-lastskip]
+        imarr = mi.Factory(mi, ccd.amp_geom.imaging).getImage().getArray()
+        oscan = mi.Factory(mi, ccd.amp_geom.serial_overscan).getImage().getArray()[:self.nrows, :-lastskip]
 
         self.q_lastcol = np.sum(imarr[:, -1])
         self.ncols = imarr.shape[1]
@@ -97,15 +101,22 @@ class MultiObjectiveFunctions(object):
         """
         return np.sum(func(pars) for func in self.funcs)
 
-if __name__ == '__main__':
-#    sensor_id = 'ITL-3800C-013'
-#    sensor_id = 'ITL-3800C-022'
-#    sensor_id = 'ITL-3800C-098'
-    sensor_id = 'ITL-3800C-058'
-    ccd_high = sensorTest.MaskedCCD('%s_superflat_high.fits' % sensor_id)
-    ccd_low = sensorTest.MaskedCCD('%s_superflat_low.fits' % sensor_id)
+class FitResults(object):
+    def __init__(self, sensor_id):
+        self.sensor_id = sensor_id
+        self.results = dict()
+    def add_results(self, fit_id, amp, results):
+        if not self.results.has_key(fit_id):
+            self.results[fit_id] = {}
+        self.results[fit_id][amp] = results
 
+def run_fits(datapath, sensor_id):
+    filepath = lambda level: \
+        os.path.join(datapath, '%s_superflat_%s.fits' % (sensor_id, level))
+    ccd_low = sensorTest.MaskedCCD(filepath('low'))
+    ccd_high = sensorTest.MaskedCCD(filepath('high'))
     my_plots = MultiPanelPlot(4, 4, figsize=(12, 12))
+    fit_results = FitResults(sensor_id)
     for amp in ccd_high:
         tc_low = TrailedCharge(ccd_low, amp, lastskip=4)
         tc_high = TrailedCharge(ccd_high, amp, lastskip=4)
@@ -120,22 +131,21 @@ if __name__ == '__main__':
                         /(tc_high.oscan_values[2] - tc_high.oscan_values[-1]))
         q0 = ((tc_high.oscan_values[1]/tc_high.nrows - tc_high.bias_per_pixel)
               /np.exp(-2/tau)/tc_high.q_lastcol)
-        print amp, q0, tau
 
         p0 = q0, tau, cti_0
         bounds = ((0, None), (0, None), (0, None))
-        result_high = scipy.optimize.minimize(tc_high, p0, method='L-BFGS-B',
-                                              bounds=bounds)
         result_low = scipy.optimize.minimize(tc_low, p0, method='L-BFGS-B',
                                              bounds=bounds)
+        fit_results.add_results('low', amp, result_low)
+        result_high = scipy.optimize.minimize(tc_high, p0, method='L-BFGS-B',
+                                              bounds=bounds)
+        fit_results.add_results('high', amp, result_high)
+        tc_joint = MultiObjectiveFunctions([tc_low, tc_high])
+        result = scipy.optimize.minimize(tc_joint, p0, method='L-BFGS-B',
+                                         bounds=bounds)
+        fit_results.add_results('joint', amp, result)
+        pickle.dump(fit_results, open('%s_fit_results.pkl' % sensor_id, 'w'))
 
-        tc_combined = MultiObjectiveFunctions([tc_low, tc_high])
-        result = scipy.optimize.minimize(tc_combined, p0,
-                                         method='L-BFGS-B', bounds=bounds)
-        print amp, result.fun, result.x, '%.4e' % tc_high.cti()
-        print amp, result_low.fun, result_low.x, '%.4e' % tc_low.cti()
-        print amp, result_high.fun, result_high.x, '%.4e' % tc_high.cti()
-        print
         my_plots.add_subplot()
         tc_low.plot_fit(result_low.x, label='low flux-only', linewidth=1)
         tc_high.plot_fit(result_high.x, color='red', label='high flux-only',
@@ -153,3 +163,11 @@ if __name__ == '__main__':
     my_plots.set_xlabel('overscan pixel')
     my_plots.set_ylabel('ADU / pixel')
     plt.savefig('%s_overscan_fits.png' % sensor_id)
+
+if __name__ == '__main__':
+    with open('itl_sensors.txt', 'r') as f:
+        for line in f:
+            datapath, filename = os.path.split(line)
+            sensor_id = filename.split('_')[0]
+            print("processing", sensor_id)
+            run_fits(datapath, sensor_id)
