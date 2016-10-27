@@ -1,6 +1,7 @@
 import os
 from collections import namedtuple, OrderedDict
 import subprocess
+import numpy as np
 import siteUtils
 import lsst.eotest.sensor as sensorTest
 
@@ -29,7 +30,7 @@ def find_noise_data(list_of_files):
                 continue
             sensor_id = line.split('/')[8]
             job_id = line.split('/')[10]
-            e2v_data[(sensor_id, job_id)] = SensorNoise(line.strip())
+            e2v_data[sensor_id] = SensorNoise(line.strip())
 
     return e2v_data
 
@@ -48,6 +49,22 @@ if __name__ == '__main__':
         '/LSST/mirror/SLAC-prod/prod/e2v-CCD'
     e2v_data = find_noise_data('file_list.txt')
 
-    for item in e2v_data:
-        sensor_id = item[0]
-        print sensor_id, get_eotest_results(sensor_id)[-1]
+    for item in e2v_data.keys():
+        sensor_id = item
+        eotest_results_file = get_eotest_results(sensor_id)[-1]
+#        print sensor_id, eotest_results_file
+
+        eotest_results = sensorTest.EOTestResults(eotest_results_file)
+
+        print sensor_id
+        lsst_total_noise = eotest_results['TOTAL_NOISE']/eotest_results['GAIN']
+        e2v_system_noise = [np.sqrt(e2v_data[sensor_id][i].total_noise_adu**2
+                                    - e2v_data[sensor_id][i].read_noise_adu**2)
+                            for i in range(1, 17)]
+        print "amp  total_noise     system_noise"
+        print "     (ADU, eotest)   (ADU, e2v)"
+        for i in range(16):
+            amp = i + 1
+            print '%2i       %.2f           %.2f' % (amp, lsst_total_noise[i],
+                                                     e2v_system_noise[i])
+        print

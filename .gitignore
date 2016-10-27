@@ -12,3 +12,6 @@ utilLib.py
 .subversion
 .sconf_temp
 *.log
+*.png
+*.pkl
+*.fits
