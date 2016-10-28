@@ -1,0 +1,214 @@
+ShortDescription: SR-EOT-02 OFFLINE SENSOR ELECTRO-OPTICAL ANALYSIS
+Name: SR-EOT-02
+Subsystem: SR
+Description: Welcome to the OFFLINE SENSOR ELECTRO-OPTICAL ANALYSIS traveler.<br><br>This traveler will execute the offline electro-optical analysis on sensor data from transmitted vendor data or measurements at Test Stand 3. The data files must be indexed in the LSST-CAMERA Data Catalog by LSST-CAMERA Serial Number and reside in a disk area which is directly accessible to the computer on which the harnessed jobs are executed.  No hazards are present during the execution of this traveler because the activities are purely computational.  There are no equipment requirements for this traveler.<br><br>Work performed includes:<ul><li>Analyze electro-optical data</li><li>Upload analysis data products including the test report to the LSST-CAMERA Data Catalog</li></ul><br><br>
+HardwareGroup: Generic-CCD
+MaxIteration: '1'
+Prerequisites:
+- {Name: 'Notice of Acknowledgement', Description: '<b>By clicking "Done" you indicate you</b><ul><li>are permitted to exercise this traveler,</li><li>previewed and understand all steps beforehand,</li><li>will fulfill all prerequisites as presented, </li><li>will follow all instructions as presented, and</li><li>ensure due diligence is used at each step.</li></ul><br><br>Before starting, review all steps within this traveler.  Contact your supervisor or subsystem manager with any concerns or for additional clarification.',
+  Quantity: '1', PrerequisiteType: PREPARATION}
+Sequence:
+- ShortDescription: Full Offline Sensor E/O Analysis
+  Name: eotest_analysis
+  Description: 'This harnessed job will automatically:<ul><li>run all of the harnessed jobs that compose the full set of offline electro-optical analyses</li><li>create a test report'
+  MaxIteration: '1'
+  Prerequisites:
+  - {Name: Instructions, Description: 'To begin the automated execution of the full offline E/O analysis scripts, click the "Done" button, then click the lcatr-launcher button instead of "Start Step".',
+  Quantity: '1', PrerequisiteType: PREPARATION}
+  TravelerActions: [Automatable]
+  Sequence:
+  - ShortDescription: System Gain and PSF Analysis
+    Name: fe55_offline
+    Description: '<b>If you have arrived at this step with the intention of running the full offline sensor E/O analysis, you have mistakenly clicked on the Start Step button in the previous step.  Please use the column to the left to return to the previous step and click on the lcatr-launcher button.</b><br><br>This harnessed job will run the 55Fe analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Read Noise Analysis
+    Name: read_noise_offline
+    Description: 'This harnessed job will run the read noise analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Bright Defects Analysis
+    Name: bright_defects_offline
+    Description: 'This harnessed job will run the bright defects analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Dark Defects Analysis
+    Name: dark_defects_offline
+    Description: 'This harnessed job will run the dark defects analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Charge Traps Analysis
+    Name: traps_offline
+    Description: 'This harnessed job will run the charge traps analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Dark Current Analysis
+    Name: dark_current_offline
+    Description: 'This harnessed job will run the dark current analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: traps_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Charge Transfer Efficiency Analyses
+    Name: cte_offline
+    Description: 'This harnessed job will run the parallel and serial charge transfer efficiency analyses, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: traps_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Photo-response Non-uniformity Analysis
+    Name: prnu_offline
+    Description: 'This harnessed job will run the photo-response non-uniformity analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: traps_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Non-linearity and Blooming Full Well Analyses
+    Name: flat_pairs_offline
+    Description: 'This harnessed job will run the non-linearity and blooming full well analyses, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: traps_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Photon Transfer Curve Analysis
+    Name: ptc_offline
+    Description: 'This harnessed job will run the photon tranfer curve analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: traps_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Quantum Efficiency Analysis
+    Name: qe_offline
+    Description: 'This harnessed job will run the quantum efficiency analysis, persist the results to the eTraveler database tables, and archive the results files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: traps_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  - ShortDescription: Test Report Generation
+    Name: test_report_offline
+    Description: 'This harnessed job will generate a test report summarizing the results of the previous analyses, persist the test report to the eTraveler database tables, and archive the report and associated files to the LSST-CAMERA Data Catalog.'
+    MaxIteration: '1'
+    Prerequisites:
+    - {Name: fe55_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: read_noise_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: bright_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_defects_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: traps_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: dark_current_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: cte_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: prnu_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: flat_pairs_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: ptc_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    - {Name: qe_offline, Description: '', Quantity: '1', PrerequisiteType: PROCESS_STEP,
+      UserVersionString: v0}
+    TravelerActions: [HarnessedJob]
+    Version: next
+    PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+    UserVersionString: v0
+  Version: next
+  PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
+Version: next
+PermissionGroups: [operator, supervisor, approver, admin, qualityAssurance]
