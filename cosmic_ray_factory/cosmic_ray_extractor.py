@@ -1,9 +1,10 @@
+#!/usr/bin/env python
 """
 Script to extract cosmic rays from single sensor dark frames.  This
 code uses the Camera team's eotest package.  In addition to darks,
-Fe55 gains and the medianed dark frame from the standard eotest suite
-are required.
+Fe55 gains from the standard eotest suite are required.
 """
+import os
 import glob
 import argparse
 import tempfile
@@ -120,15 +121,14 @@ if __name__ == '__main__':
     gains = {amp: gain for amp, gain in
              zip(eo_results['AMP'], eo_results['GAIN'])}
 
-
     med_file = args.medianed_dark
     if med_file is None:
         med_file = tempfile.NamedTemporaryFile(prefix='tmp_med_file_',
                                                dir='.', suffix='.fits').name
-        imutils.fits_median_file(darks, med_file, bitpix=32)
+        imutils.fits_median_file(darks, med_file, bitpix=-32)
 
-    mask_file =\
-        tempfile.NamedTemporaryFile(prefix='tmp_mask_', suffix='.fits').name
+    mask_file = tempfile.NamedTemporaryFile(prefix='tmp_mask_', dir='.',
+                                            suffix='.fits').name
     is_masked = make_mask(med_file, gains, mask_file)
 
     fp_id, x0, y0, pixel_values = [], [], [], []
@@ -144,16 +144,15 @@ if __name__ == '__main__':
             image -= bg_image(ccd, amp)
             image = image.Factory(image, ccd.amp_geom.imaging)
             num_pix += np.prod(image.getImage().getArray().shape)
-            stats = afw_math.makeStatistics(image,
-                                            afw_math.MEDIAN | afw_math.STDEVCLIP,
-                                            ccd.stat_ctrl)
-            threshold = \
-                afw_detect.Threshold(stats.getValue(afw_math.MEDIAN) +
-                                     args.nsig*stats.getValue(afw_math.STDEVCLIP))
-            fp_set = afw_detect.FootprintSet(image, threshold)
-            fps = [fp for fp in fp_set.getFootprints()]
 
-            for fp in fps:
+            flags = afw_math.MEDIAN | afw_math.STDEVCLIP
+            stats = afw_math.makeStatistics(image, flags, ccd.stat_ctrl)
+            median = stats.getValue(afw_math.MEDIAN)
+            stdev = stats.getValue(afw_math.STDEVCLIP)
+            threshold = afw_detect.Threshold(median + args.nsig*stdev)
+
+            fp_set = afw_detect.FootprintSet(image, threshold)
+            for fp in fp_set.getFootprints():
                 if is_masked(amp, fp):
                     continue
                 index += 1
@@ -163,10 +162,8 @@ if __name__ == '__main__':
                     ix0, ix1 = span.getX0(), span.getX1()
                     x0.append(ix0)
                     y0.append(iy)
-                    pixel_values.append(
-                        np.array(image.getImage().getArray()[iy, ix0:ix1+1],
-                                 dtype=np.int)
-                        )
+                    row = gains[amp]*image.getImage().getArray()[iy, ix0:ix1+1]
+                    pixel_values.append(np.array(row, dtype=np.int))
 
     hdu_list = fits.HDUList([fits.PrimaryHDU()])
     columns = [fits.Column(name='fp_id', format='I', array=fp_id),
@@ -179,3 +176,6 @@ if __name__ == '__main__':
     hdu_list[-1].header['EXPTIME'] = exptime
     hdu_list[-1].header['NUM_PIX'] = int(float(num_pix)/len(darks))
     hdu_list.writeto(args.outfile, overwrite=True)
+
+    for item in glob.glob('tmp_*.fits'):
+        os.remove(item)
